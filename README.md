@@ -1,33 +1,27 @@
- 
-
-
+```plaintext                                                                                                     
+    ,---,.                                  ,--,                                                   ___     
+  ,'  .'  \                               ,--.'|                                         .--.,   ,--.'|_   
+,---.' .' |   ,---.                       |  | :                      __  ,-.          ,--.'  \  |  | :,'  
+|   |  |: |  '   ,'\ ,--,  ,--,           :  : '                    ,' ,'/ /|          |  | /\/  :  : ' :  
+:   :  :  / /   /   ||'. \/ .`|    ,---.  |  ' |              ,---. '  | |' | ,--.--.  :  : :  .;__,'  /   
+:   |    ; .   ; ,. :'  \/  / ;   /     \ '  | |             /     \|  |   ,'/       \ :  | |-,|  |   |    
+|   :     \'   | |: : \  \.' /   /    /  ||  | :            /    / ''  :  / .--.  .-. ||  : :/|:__,'| :    
+|   |   . |'   | .; :  \  ;  ;  .    ' / |'  : |__         .    ' / |  | '   \__\/: . .|  |  .'  '  : |__  
+'   :  '; ||   :    | / \  \  \ '   ;   /||  | '.'|        '   ; :__;  : |   ," .--.; |'  : '    |  | '.'| 
+|   |  | ;  \   \  /./__;   ;  \'   |  / |;  :    ;        '   | '.'|  , ;  /  /  ,.  ||  | |    ;  :    ; 
+|   :   /    `----' |   :/\  \ ;|   :    ||  ,   /         |   :    :---'  ;  :   .'   \  : \    |  ,   /  
+|   | ,'            `---'  `--`  \   \  /  ---`-'           \   \  /       |  ,     .-./  |,'     ---`-'   
+`----'                            `----'                     `----'         `--`---'   `--'                
+```                                                                                          
 > Open this page at [https://heronerin.github.io/true-3d/](https://heronerin.github.io/true-3d/)
 
-## Use as Extension
 
-This repository can be added as an **extension** in MakeCode.
+## Boxel Craft
 
-* open [https://arcade.makecode.com/](https://arcade.makecode.com/)
-* click on **New Project**
-* click on **Extensions** under the gearwheel menu
-* search for **https://github.com/heronerin/true-3d** and import
+A quite bad true 3d engine written for MakeCode Arcade, a gross, disgusting, **proprietary** game engine made by Microsoft. But here it is, an early alpha Minecraft clone. Made in whatever masochistic abomination that is the Typescript fork Microsoft makes you use. If you wish to play you can either click the link above or flash it to a single-board computer
 
-## Edit this project ![Build status badge](https://github.com/heronerin/true-3d/workflows/MakeCode/badge.svg)
+## Controls
 
-To edit this repository in MakeCode.
+As Microsoft enjoys reinventing the wheel, you are limited to the Makecode Arcades controller, and the keyboard is haphazardly mapped to the controller. Use up, down, left, and right to look around. You go forward and backward using the A and B buttons, not the A and B keys on **your** keyboard, but on their controller. If you press A and B at the same time, the block menu will open, and use left and right to select the block to place, or the scissors to break a block. If you only press the A and B at the same time for a short period of time, this will activate the action instantly, allowing for quicker placement/breakage of blocks. 
 
-* open [https://arcade.makecode.com/](https://arcade.makecode.com/)
-* click on **Import** then click on **Import URL**
-* paste **https://github.com/heronerin/true-3d** and click import
-
-## Blocks preview
-
-This image shows the blocks code from the last commit in master.
-This image may take a few minutes to refresh.
-
-![A rendered view of the blocks](https://github.com/heronerin/true-3d/raw/master/.github/makecode/blocks.png)
-
-#### Metadata (used for search, rendering)
-
-* for PXT/arcade
-<script src="https://makecode.com/gh-pages-embed.js"></script><script>makeCodeRender("{{ site.makecode.home_url }}", "{{ site.github.owner_name }}/{{ site.github.repository_name }}");</script>
+![https://pxt.azureedge.net/blob/d3103fbe8ee470984cc0e45d0efb543ce6bebc42/static/hardware/key-assign.jpg](https://pxt.azureedge.net/blob/d3103fbe8ee470984cc0e45d0efb543ce6bebc42/static/hardware/key-assign.jpg)
