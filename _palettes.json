@@ -1,0 +1,28 @@
+{
+    "nextPaletteID": 1,
+    "palettes": {
+        "custom0": {
+            "id": "custom0",
+            "name": "Gradient",
+            "colors": [
+                "#000000",
+                "#FFFFFF",
+                "#FF0000",
+                "#DB0000",
+                "#A80000",
+                "#00FF6E",
+                "#00D15B",
+                "#008A3C",
+                "#A200FF",
+                "#6700A3",
+                "#4E007A",
+                "#EEFF00",
+                "#BECC00",
+                "#6D7500",
+                "#249CA3",
+                "#000000"
+            ],
+            "custom": true
+        }
+    }
+}

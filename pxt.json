@@ -1,0 +1,44 @@
+{
+    "name": "True 3d",
+    "description": "",
+    "dependencies": {
+        "device": "*",
+        "settings-blocks": "github:microsoft/pxt-settings-blocks#v1.0.0",
+        "controller": "*"
+    },
+    "files": [
+        "main.ts",
+        "README.md",
+        "assets.json"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "1.12.47",
+        "targetId": "arcade"
+    },
+    "supportedTargets": [
+        "arcade"
+    ],
+    "preferredEditor": "tsprj",
+    "languageRestriction": "javascript-only",
+    "palette": [
+        "#000000",
+        "#FFFFFF",
+        "#FF0000",
+        "#DB0000",
+        "#A80000",
+        "#00FF6E",
+        "#00D15B",
+        "#008A3C",
+        "#A200FF",
+        "#6700A3",
+        "#4E007A",
+        "#EEFF00",
+        "#BECC00",
+        "#6D7500",
+        "#249CA3",
+        "#000000"
+    ]
+}
