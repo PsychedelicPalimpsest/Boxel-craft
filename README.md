@@ -13,7 +13,7 @@
 |   | ,'            `---'  `--`  \   \  /  ---`-'           \   \  /       |  ,     .-./  |,'     ---`-'   
 `----'                            `----'                     `----'         `--`---'   `--'                
 ```                                                                                          
-> Open this page at [https://heronerin.github.io/true-3d/](https://heronerin.github.io/true-3d/)
+> Open this page at [https://heronerin.github.io/true-3d/](https://heronerin.github.io/Boxel-craft/)
 
 
 ## Boxel Craft
