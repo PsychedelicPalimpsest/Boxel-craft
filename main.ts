@@ -79,16 +79,15 @@ let deltatime: number;
 let forceRebuildChunk = false;
 let back = scene.backgroundImage();
 
+// Turn a 3d point into a single number, a bad form of hashing.
+// This way indexOf will work on these PHASHES
 function PHASH(pos: number[]) {
     return pos[0] + pos[1] * PHASH_FACTOR + pos[2] * PHASH_FACTOR * PHASH_FACTOR;
 }
-function UN_HASH(pos: number) {
-    let z = Math.idiv(pos, PHASH_FACTOR * PHASH_FACTOR);
-    pos %= PHASH_FACTOR * PHASH_FACTOR;
-    let y = Math.idiv(pos, PHASH_FACTOR);
-    pos %= PHASH_FACTOR;
-    return [pos, y, z];
-}
+
+// Mostly unused. These funcs were an attempt to get Negative numbers to work,
+// but it is more trouble than it is worth. 
+// But if I try to remove them I also run into issues...
 function canonizePoint(x: number, y: number, z: number){
     if (0 > x) x = x + CANNONIZE_FACTOR;
     if (0 > y) y += CANNONIZE_FACTOR;
@@ -121,11 +120,11 @@ function projectPoint(x: number, y: number, z: number) {
     const sz = Math.sin(player_rz);
 
     // Handles player rotation
-
     const temp = (cz * y - sz * x);
     const temp2 = (cy * z + sy * (sz * y + cz * x));
     const dz = cx * temp2 - sx * temp;
 
+    // Prevent rendering strange bugs
     if (dz < 0)
         return null;
 
@@ -137,8 +136,6 @@ function projectPoint(x: number, y: number, z: number) {
     sx = dx / dz * width * FOV;
     sy = dy / dz * height * FOV;
 
-    // Prevent rendering strange bug
-
 
     // Make center of screen orgin 
     sy = height / 2 - sy;
@@ -146,11 +143,13 @@ function projectPoint(x: number, y: number, z: number) {
 
     return [sx, sy, dz, null]
 }
+// Used to scale up, and offset objects (mutate points)
 function mutPoints(points: number[][], scale: number, offsetx: number, offsety: number, offsetz: number) {
     return points.map(
         (point) => [point[0] * scale + offsetx, point[1] * scale + offsety, point[2] * scale + offsetz]
     );
 }
+                                                                    // Same rotation format as player rotations
 function rotatePointAroundPoint(point: number[], origin: number[], theta: number[]) {
     point[0] -= origin[0];
     point[1] -= origin[1];
@@ -180,19 +179,23 @@ function rotatePoints(points: number[][], origin: number[], theta: number[]) {
     );
 }
 // 3d models:
+
 let planePoints = [
+    // x  y   z
     [0.5, 0, 0.5],  // 0
     [-0.5, 0, 0.5], // 1
     [-0.5, 0, -0.5],// 2
     [0.5, 0, -0.5] // 3
 ]
 let planeLines = [
+    // Index, index, color
     [0, 1, 3],
     [1, 2, 3],
     [2, 3, 3],
     [3, 0, 3],
 ]
 let planeTris = [
+    // Index, index, index, color
     [0, 1, 2, 4],
     [2, 3, 0, 5]
 ]
@@ -245,8 +248,12 @@ let cubeTris = [
     [5, 6, 2, 8],
 ]
 
+// FancyUi (aka the block selection meny)
+
 let temp = 0;
 let fancyBackground : Image = null;
+
+// Generate block models with some lighting to make it look better in block place menu
 const F_RED = cubeTris.map((tri) => [tri[0], tri[1], tri[2], RED_BLOCK + Math.idiv(temp++, 2) % 2])
 const F_GREEN = cubeTris.map((tri) => [tri[0], tri[1], tri[2], GREEN_BLOCK + Math.idiv(temp++, 2) % 2])
 const F_PURPLE= cubeTris.map((tri) => [tri[0], tri[1], tri[2], PURPLE_BLOCK + Math.idiv(temp++, 2) % 2])
@@ -273,6 +280,8 @@ function creep(current: number, towards: number, increment: number) {
 let F_released_B = false;
 let F_released_A = false;
 let F_press_time : number = null;
+
+// Ran every update when gameMode == 1
 function fancyUi(){
     if (fancyBackground == null){
         back.fillCircle(width / 2, height / 2, width / 4, 0);
@@ -284,21 +293,15 @@ function fancyUi(){
     
     back.copyFrom(fancyBackground);
     
-
+    // Keep the blocks always rotating
     let rot = game.runtime() / 1000;
-
-    let ui_pos = [
-        [6, 0],
-        [0, 7],
-        [-6, 0],
-        [0, -7],
-    ]
     
     F_BLOCKS.forEach((block)=>{
         menuTriStack(
             mutPoints(
                 rotatePoints(cubePoints, [0, 0, 0], [rot, rot, 0]), 3, block[1][0][1], block[1][0][2], 30
             ), block[0], 5);
+        // Steadly move blocks toward target pos at a constant rate
         block[1][0][1] = creep(block[1][0][1], block[1][0][3], deltatime * 10);
         block[1][0][2] = creep(block[1][0][2], block[1][0][4], deltatime * 10);
     });
@@ -327,7 +330,7 @@ function fancyUi(){
         fancyBackground = null;
         return;
     }
-    if (
+    if ( // Place block when both A and B are pressed when opening the menu OR if A is pressed while in menu
         (F_released_B && F_released_A && game.runtime() - F_press_time < QUICK_ACTION_TIME) 
         ||(F_released_A && controller.A.isPressed())) {
         gameMode = 0;
@@ -419,6 +422,8 @@ function raycast() {
 
     return null;
 }
+// Most stripped down version of the 3d object render. All the math is here, take it in. 
+// Points are relative to screen, not to player. This is best used in UI
 function menuTriStack(points: number[][], tris: number[][], color : number){
     const pstack = points.map((xy)=>{
         let sx = xy[0] / xy[2] * width;
@@ -435,11 +440,17 @@ function menuTriStack(points: number[][], tris: number[][], color : number){
            back.fillTriangle(x[0][0], x[0][1], x[1][0], x[1][1], x[2][0], x[2][1], x[3][0]);
        })
 }
+// Optimized triangle renderer. 
 function drawTriStack(points: number[][], tris: number[][]) {
+    // 2d point array
     const pstack: number[][] = [];
+    // List of valid triangles
     let valid: number[][][] = [];
+    // List of dephs used in ordering to triangles
     const deph: number[] = [];
 
+
+    // Build of triangles, eliminate ones too far away, project them, and add to valid + delph arrays
     for (const tri of tris) {
         const p0 = tri[0];
         const p1 = tri[1];
@@ -448,11 +459,12 @@ function drawTriStack(points: number[][], tris: number[][]) {
         const point1 = points[p1];
         const point2 = points[p2];
 
-        if (
+        if ( // Test of too far away, should be quite fast
             semiDistance(point0) < TRI_MIN_DISTANCE &&
             semiDistance(point1) < TRI_MIN_DISTANCE &&
             semiDistance(point2) < TRI_MIN_DISTANCE
         ) {
+            // Use pstack as a cache so we never need to projectPoint a point twice (in same frame)
             let temp0 = pstack[p0] || (pstack[p0] = projectPoint(point0[0], point0[1], point0[2]));
             let temp1 = pstack[p1] || (pstack[p1] = projectPoint(point1[0], point1[1], point1[2]));
             let temp2 = pstack[p2] || (pstack[p2] = projectPoint(point2[0], point2[1], point2[2]));
@@ -465,7 +477,8 @@ function drawTriStack(points: number[][], tris: number[][]) {
     }
 
     // Sort valid triangles by depth (front to back)
-    // Based on the wikipedia article for Selection Sort
+    // Based on the wikipedia article for Selection Sort.
+    // Simply put, the js sorting algorithm is too slow for this use case. 
     for (let i = 0; i < valid.length; i++) {
         let maxDepthIndex = i;
         for (let j = i + 1; j < valid.length; j++) {
@@ -478,12 +491,12 @@ function drawTriStack(points: number[][], tris: number[][]) {
     }
     
     // Draw valid triangles
-    // valid = JSON.parse(JSON.stringify(valid));
     for (const x of valid) {
         back.fillTriangle(x[0][0], x[0][1], x[1][0], x[1][1], x[2][0], x[2][1], x[3][0]);
     }
 
 }
+// Draw wireframe models, no sorting in needed, and it is only used in the cursor anyways.
 function drawLineStack(points: number[][], lines: number[][]) {
     let pstack = points.map(
         (point) => projectPoint(point[0], point[1], point[2])
@@ -504,18 +517,16 @@ function drawLineStack(points: number[][], lines: number[][]) {
         back.drawLine(p1[0], p1[1], p2[0], p2[1], point[2]);
     })
 }
+// Get from a list, and extend it if too small. Always give back an array
 function extendAndGet(l: any[][], index: number) {
     while (l.length <= index)
         l.push([]);
     return l[index];
 }
-function sExtendAndGet(l: any[][], index: number){
-    if (index > 100) return [];
-    if (index < 0) index+=100;
-    return extendAndGet(l, index);
-}
 // ChunkX, ChunkZ, Y, X, Z, id
 let world: number[][][][][] = [];
+
+
 function SetBlock(x: number, y: number, z: number, id: number) {
     // Negative coords break the engine
     if (x < 0) return;
@@ -555,6 +566,7 @@ function GetBlock(x: number, y: number, z: number) {
     let b = rowX[tpos[2] % CHUNK_SIZE];
     return b ? b : 0;
 }
+// These are some magic numbers used in chunk model construction
 const faces = [
     [4, .5, 0, 0],
     [5, -.5, 0, 0],
@@ -563,7 +575,8 @@ const faces = [
     [8, 0, 0, .5],
     [9, 0, 0, -.5],
 ];
-// Generate an optimized render stack for a single chunk
+
+// Generate an optimized render stack for a single chunk.
 function genChunkStack(cx: number, cz: number) {
     if (cx < 0) return [[], []];
     if (cz < 0) return [[], []];
@@ -640,6 +653,7 @@ function genChunkStack(cx: number, cz: number) {
 
     return chunkRenderStack;
 }
+// Modify the chunk 3d models directly to avoid frequent reconstruction
 function updateLighting(){
     // return;
     for (let i = 0; i < currentchunks.length; i++){
@@ -730,8 +744,8 @@ if (!loadGame()){
     }
 }
 
+// Main loop
 game.onUpdate(() => {
-    
     let r = game.runtime();
     deltatime = (r - last) / 1000;
     last = r;
@@ -751,9 +765,9 @@ game.onUpdate(() => {
             for (let cz = tcz - renderDistanceHalf; cz < tcz + renderDistanceHalf; cz++){
                 // if (cx > 100) continue;
                 // if (cz > 100) continue;
-                let cannon_chunk = canonizeChunk(cx, cz);
+                const cannon_chunk = canonizeChunk(cx, cz);
 
-                let rowx = extendAndGet(chunks, cannon_chunk[0]);
+                const rowx = extendAndGet(chunks, cannon_chunk[0]);
                 let chunk = extendAndGet(rowx, cannon_chunk[1]);
 
                 if (chunk.length == 0)
@@ -765,7 +779,6 @@ game.onUpdate(() => {
                 if (chunk && chunk.length)
                     chunks[cannon_chunk[0]][cannon_chunk[1]] = chunk;
                     
-                    // JoinShape(chunk[0], chunk[1]);
                 
             }
         }
@@ -775,27 +788,27 @@ game.onUpdate(() => {
         
     }
     updateLighting();
-    let c_true_x = player_x / CHUNK_SIZE;
-    let c_true_z = player_z / CHUNK_SIZE;
+    const c_true_x = player_x / CHUNK_SIZE;
+    const c_true_z = player_z / CHUNK_SIZE;
     
 
     currentchunks
         // Render far away chunks first, then the ones closer to the player.
-        // Sorting a few dozen chunks if faster than tens of thousands of triangles. 
+        // Sorting a few dozen chunks is faster than tens of thousands of triangles. 
         .sort((xy, xy2) => {
-            let dx = Math.max(
+            const dx = Math.max(
                 Math.pow(c_true_x - xy[0], 2),
                 Math.pow(c_true_x - (xy[0] + .999), 2)
             );
-            let dz = Math.max(
+            const dz = Math.max(
                 Math.pow(c_true_z - xy[1], 2),
                 Math.pow(c_true_z - (xy[1] + .999), 2)
             );
-            let dx2 = Math.max(
+            const dx2 = Math.max(
                 Math.pow(c_true_x - xy2[0], 2),
                 Math.pow(c_true_x - (xy2[0] + .999), 2)
             );
-            let dz2 = Math.max(
+            const dz2 = Math.max(
                 Math.pow(c_true_z - xy2[1], 2),
                 Math.pow(c_true_z - (xy2[1] + .999), 2)
             );
@@ -812,9 +825,9 @@ game.onUpdate(() => {
     if (null != lookingAt && lookingAt[3] >= 0 && lookingAt[4] >= 0 && lookingAt[5] >= 0) {
         const scalar = 1 + Math.sin(r / 100) / 9;
         const outLinePoints = mutPoints(cubePoints, scalar, lookingAt[0], lookingAt[1], lookingAt[2]);
-        let dirx = -.5 * Math.sign(lookingAt[0] - lookingAt[3]);
-        let diry = .5 * -Math.sign(lookingAt[1] - lookingAt[4]);
-        let dirz = .5 * -Math.sign(lookingAt[2] - lookingAt[5]);
+        const dirx = -.5 * Math.sign(lookingAt[0] - lookingAt[3]);
+        const diry = .5 * -Math.sign(lookingAt[1] - lookingAt[4]);
+        const dirz = .5 * -Math.sign(lookingAt[2] - lookingAt[5]);
         
         temp = 0;
         let previewPoints: number[][] = mutPoints(cubePoints.filter((xy)=>{
