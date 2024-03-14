@@ -11,6 +11,7 @@
     |   :   /    `----' |   :/\  \ ;|   :    ||  ,   /         |   :    :---'  ;  :   .'   \  : \    |  ,   /  
     |   | ,'            `---'  `--`  \   \  /  ---`-'           \   \  /       |  ,     .-./  |,'     ---`-'   
     `----'                            `----'                     `----'         `--`---'   `--'                
+    Github Url: https://github.com/HeronErin/true-3d
     Copyright (C) 2024 - HeronErin
 
     This program is free software: you can redistribute it and/or modify
@@ -26,23 +27,17 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
-let player_x = 0;
-let player_y = 0;
-let player_z = 0;
 
-let player_rx = 0;
-let player_ry = 0;
-let player_rz = 0;
-let back = scene.backgroundImage();
+// Constants:
 const FOV = 0.5;
 
-const renderDistance = 10; // MUST BE DIVISABLE BY 2
+const renderDistance = 4; // MUST BE DIVISABLE BY 2
 
 const renderDistanceHalf = Math.idiv(renderDistance, 2);
 const TRI_MIN_DISTANCE = 20
 const SQUARED_MIN = Math.pow(TRI_MIN_DISTANCE, 2);
 
-const CHUNK_SIZE = 3
+const CHUNK_SIZE = 8
 
 const QUICK_ACTION_TIME = 125
 
@@ -59,7 +54,30 @@ const GREEN_BLOCK = 5;
 const PURPLE_BLOCK = 8;
 const YELLOW_BLOCK = 11;
 
-const BLOCK_ORIGIN_RESOLVE = [0, 0, 2, 2, 2, 5, 5, 5, 8, 8, 8, 11, 11, 11];
+// Player info globals
+let player_x = 0;
+let player_y = 0;
+let player_z = 0;
+
+let player_rx = 0;
+let player_ry = 0;
+let player_rz = 0;
+
+let gameMode = 0;
+
+let lookingAt: number[] = null;
+
+let player_cx: number = null;
+let player_cz: number = null;
+
+
+let chunks: number[][][][][] = [];
+let currentchunks: number[][] = [];
+
+let last = game.runtime();
+let deltatime: number;
+let forceRebuildChunk = false;
+let back = scene.backgroundImage();
 
 function PHASH(pos: number[]) {
     return pos[0] + pos[1] * PHASH_FACTOR + pos[2] * PHASH_FACTOR * PHASH_FACTOR;
@@ -161,6 +179,7 @@ function rotatePoints(points: number[][], origin: number[], theta: number[]) {
         (point) => rotatePointAroundPoint(point.slice(), origin, theta)
     );
 }
+// 3d models:
 let planePoints = [
     [0.5, 0, 0.5],  // 0
     [-0.5, 0, 0.5], // 1
@@ -232,7 +251,7 @@ const F_RED = cubeTris.map((tri) => [tri[0], tri[1], tri[2], RED_BLOCK + Math.id
 const F_GREEN = cubeTris.map((tri) => [tri[0], tri[1], tri[2], GREEN_BLOCK + Math.idiv(temp++, 2) % 2])
 const F_PURPLE= cubeTris.map((tri) => [tri[0], tri[1], tri[2], PURPLE_BLOCK + Math.idiv(temp++, 2) % 2])
 const F_YELLOW = cubeTris.map((tri) => [tri[0], tri[1], tri[2], YELLOW_BLOCK + Math.idiv(temp++, 2) % 2]);
-let F_pos = 0;
+
 let F_pressing = false;
 
 const F_BLOCKS = [
@@ -324,6 +343,7 @@ function fancyUi(){
                 return;
             }
         }
+        saveGame();
         
     }
     F_pressing = controller.left.isPressed() || controller.right.isPressed();
@@ -497,6 +517,7 @@ function sExtendAndGet(l: any[][], index: number){
 // ChunkX, ChunkZ, Y, X, Z, id
 let world: number[][][][][] = [];
 function SetBlock(x: number, y: number, z: number, id: number) {
+    // Negative coords break the engine
     if (x < 0) return;
     if (y < 0) return;
     if (z < 0) return;
@@ -511,6 +532,8 @@ function SetBlock(x: number, y: number, z: number, id: number) {
     while (rowX.length != CHUNK_SIZE)
         rowX.push(0);
     rowX[tpos[2] % CHUNK_SIZE] = id;
+    
+    
 }
 function GetBlock(x: number, y: number, z: number) {
     if (x < 0) return 0;
@@ -652,37 +675,61 @@ function updateLighting(){
 
 }
 
-// Fancy grid like thing
-// for (let x = -50; x < 50; x++){
-//     for (let z = -50; z < 50; z++) {
-//         SetBlock(x, 1, z, [RED_BLOCK, GREEN_BLOCK, PURPLE_BLOCK, YELLOW_BLOCK][Math.abs(x*z%4)])
-//         if (Math.abs(x + z) % 10 == 0)
-//             SetBlock(x, 2, z, YELLOW_BLOCK + Math.abs(x * z % 2));
-//         // if ((x + z) % 69 == 0) x++;
-//     }
-// }
-for (let x = 1; x++ < 25; ){
-    for (let z = 1; z++ < 25;){
-        SetBlock(x, 2, z, GREEN_BLOCK);
-        SetBlock(x, 1, z, PURPLE_BLOCK);
-        SetBlock(x, 0, z, PURPLE_BLOCK);
-        
+function saveGame(){
+    const playerJson = JSON.stringify({
+        "x": player_x,
+        "y": player_y,
+        "z": player_z,
+        "rx": player_rx,
+        "ry": player_ry,
+        "rz": player_rz,
+        "CHUNK_SIZE": CHUNK_SIZE
+    });
+    const worldJson = JSON.stringify(world);
+
+    blockSettings.writeString("player", playerJson);
+    blockSettings.writeString("world", worldJson);
+}
+function loadGame(){
+    let playerJson = blockSettings.readString("player");
+    let worldJson = blockSettings.readString("world");
+    if (playerJson == undefined || worldJson == undefined)
+        return false;
+    
+    let playerObj = JSON.parse(playerJson);
+    if (playerObj.CHUNK_SIZE != CHUNK_SIZE){
+        let a = game.ask("Chunck size error!!", "Want to clear the game?");
+        if (!a){
+            game.gameOver(false);
+            return true;
+        }
+        return false;
+    }
+
+    world = JSON.parse(worldJson);
+
+    player_x = playerObj.x;
+    player_y = playerObj.y;
+    player_z = playerObj.z;
+
+    player_rx = playerObj.rx;
+    player_ry = playerObj.ry;
+    player_rz = playerObj.rz;
+
+    return true;
+
+}
+
+if (!loadGame()){
+    for (let x = 1; x++ < 25;) {
+        for (let z = 1; z++ < 25;) {
+            SetBlock(x, 2, z, GREEN_BLOCK);
+            SetBlock(x, 1, z, PURPLE_BLOCK);
+            SetBlock(x, 0, z, PURPLE_BLOCK);
+        }
     }
 }
-let gameMode = 0;
 
-let lookingAt : number[] = null;
-
-let player_cx : number = null;
-let player_cz : number = null;
-
-
-let chunks : number[][][][][] = [];
-let currentchunks : number[][] = [];
-
-let last = game.runtime();
-let deltatime : number;
-let forceRebuildChunk = false;
 game.onUpdate(() => {
     
     let r = game.runtime();
@@ -722,7 +769,8 @@ game.onUpdate(() => {
                 
             }
         }
-        // console.log(JSON.stringify(chunks));
+
+        saveGame();
         
         
     }
