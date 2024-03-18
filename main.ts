@@ -735,6 +735,10 @@ function loadGame(){
 }
 
 if (!loadGame()){
+    game.showLongText("Use the arrow keys to look around, space to go forward, enter to go backwards.", DialogLayout.Bottom)
+    game.showLongText("Press enter and space at the same time to edit a block.", DialogLayout.Bottom)
+    game.showLongText("If you do it quick, it happens instantly, otherwise you can use the block menu. ", DialogLayout.Bottom)
+    
     for (let x = 1; x++ < 25;) {
         for (let z = 1; z++ < 25;) {
             SetBlock(x, 2, z, GREEN_BLOCK);
