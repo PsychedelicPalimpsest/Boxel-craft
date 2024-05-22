@@ -47,8 +47,7 @@ const PHASH_FACTOR = CANNONIZE_FACTOR*500;
 const CHUNK_CANNONIZE_FACTOR = Math.idiv(CANNONIZE_FACTOR, CHUNK_SIZE);
 
 game.stats = true;
-
-
+let saveName: string;
 const RED_BLOCK = 2;
 const GREEN_BLOCK = 5;
 const PURPLE_BLOCK = 8;
@@ -62,14 +61,17 @@ let player_z = 0;
 let player_rx = 0;
 let player_ry = 0;
 let player_rz = 0;
+let score = 0;
 
-let gameMode = 0;
+let gameScreen = 0;
 
 let lookingAt: number[] = null;
 
 let player_cx: number = null;
 let player_cz: number = null;
 
+let gamemode = 0;
+const MAX_GAMEMODE : number = 3;
 
 let chunks: number[][][][][] = [];
 let currentchunks: number[][] = [];
@@ -281,7 +283,7 @@ let F_released_B = false;
 let F_released_A = false;
 let F_press_time : number = null;
 
-// Ran every update when gameMode == 1
+// Ran every update when gameScreen == 1
 function fancyUi(){
     if (fancyBackground == null){
         back.fillCircle(width / 2, height / 2, width / 4, 0);
@@ -326,14 +328,14 @@ function fancyUi(){
 
     
     if (F_released_B && controller.B.isPressed()){
-        gameMode = 0;
+        gameScreen = 0;
         fancyBackground = null;
         return;
     }
     if ( // Place block when both A and B are pressed when opening the menu OR if A is pressed while in menu
         (F_released_B && F_released_A && game.runtime() - F_press_time < QUICK_ACTION_TIME) 
         ||(F_released_A && controller.A.isPressed())) {
-        gameMode = 0;
+        gameScreen = 0;
         fancyBackground = null;
         forceRebuildChunk = true;
         chunks = [[], []];
@@ -341,6 +343,7 @@ function fancyUi(){
         for (const block of F_BLOCKS){
             if (block[1][0][3] == 0 && block[1][0][4] == 0){
                 let off = 0==block[1][0][0] ? 0 : 3;
+                if (block[1][0][0] == 0) score++;
                 SetBlock(lookingAt[0 + off], lookingAt[1 + off], lookingAt[2 + off], block[1][0][0]);
 
                 return;
@@ -689,7 +692,61 @@ function updateLighting(){
 
 }
 
-function saveGame(){
+function worldSelectionUi(callback: (enteredName : string)=>void){
+    let isExited = false;
+    let worldRes = blockSettings.readString("worlds");
+    let worlds : string[] = JSON.parse(worldRes || "[]");
+    let current = -1;
+    controller.down.onEvent(ControllerButtonEvent.Pressed, ()=>
+        current = Math.min(current+1, worlds.length-1)
+    );
+    controller.up.onEvent(ControllerButtonEvent.Pressed, () =>
+        current = Math.max(current -1, -1)
+    );
+    let onEnter = ()=>{
+        if (isExited) return;
+        if (current == -1){
+            let name = game.askForString("Name your world", 10);
+            if (name != undefined) {
+                worlds.push(name);
+                blockSettings.writeString("worlds", JSON.stringify(worlds))
+                isExited = true;
+                callback(name);
+            }
+        }else{
+            isExited = true;
+            callback(worlds[current]);
+        }
+    };
+    controller.left.onEvent(ControllerButtonEvent.Pressed, onEnter);
+    controller.right.onEvent(ControllerButtonEvent.Pressed, onEnter);
+    controller.A.onEvent(ControllerButtonEvent.Pressed, onEnter);
+    controller.B.onEvent(ControllerButtonEvent.Pressed, onEnter);
+    
+    game.onUpdate(()=>{
+        if (isExited) return;
+        back.fill(1)
+        // Main box
+        back.drawRect(15, 0, screen.width - 30, screen.height, 4);
+        back.fillRect(16, 1, screen.width - 32, screen.height - 2, 2);
+        
+        if (current == -1)
+            back.fillRect(20, 5, screen.width - 35, 20, 14);
+        back.print("Create new world",20, 5);
+        
+        if (current != -1)
+            back.fillRect(20, 25, screen.width - 35, 15, 14);
+        let addOff = 0;
+        for (let add = 0; add < 4; add++){
+            if (current == -1 && add == 0) addOff++;
+            if (current + add + addOff >= worlds.length) break;
+            back.print(worlds[current + add + addOff], 20, 30 + add * 20);
+        }
+
+    });
+}
+
+function saveGame() {
     const playerJson = JSON.stringify({
         "x": player_x,
         "y": player_y,
@@ -697,23 +754,26 @@ function saveGame(){
         "rx": player_rx,
         "ry": player_ry,
         "rz": player_rz,
-        "CHUNK_SIZE": CHUNK_SIZE
+        "CHUNK_SIZE": CHUNK_SIZE,
+        "gamemode" : gamemode,
+        "score" : score
     });
     const worldJson = JSON.stringify(world);
 
-    blockSettings.writeString("player", playerJson);
-    blockSettings.writeString("world", worldJson);
+    blockSettings.writeString(saveName + "_player", playerJson);
+    blockSettings.writeString(saveName + "_world", worldJson);
 }
-function loadGame(){
-    let playerJson = blockSettings.readString("player");
-    let worldJson = blockSettings.readString("world");
+function loadGame() {
+    
+    let playerJson = blockSettings.readString(saveName + "_player");
+    let worldJson = blockSettings.readString(saveName + "_world");
     if (playerJson == undefined || worldJson == undefined)
         return false;
-    
+
     let playerObj = JSON.parse(playerJson);
-    if (playerObj.CHUNK_SIZE != CHUNK_SIZE){
+    if (playerObj.CHUNK_SIZE != CHUNK_SIZE) {
         let a = game.ask("Chunck size error!!", "Want to clear the game?");
-        if (!a){
+        if (!a) {
             game.gameOver(false);
             return true;
         }
@@ -729,152 +789,162 @@ function loadGame(){
     player_rx = playerObj.rx;
     player_ry = playerObj.ry;
     player_rz = playerObj.rz;
+    gamemode = playerObj.gamemode | 0;
+    score = playerObj.score | 0;
 
     return true;
 
 }
 
-if (!loadGame()){
-    game.showLongText("Use the arrow keys to look around, space to go forward, enter to go backwards.", DialogLayout.Bottom)
-    game.showLongText("Press enter and space at the same time to edit a block.", DialogLayout.Bottom)
-    game.showLongText("If you do it quick, it happens instantly, otherwise you can use the block menu. ", DialogLayout.Bottom)
-    
-    for (let x = 1; x++ < 25;) {
-        for (let z = 1; z++ < 25;) {
-            SetBlock(x, 2, z, GREEN_BLOCK);
-            SetBlock(x, 1, z, PURPLE_BLOCK);
-            SetBlock(x, 0, z, PURPLE_BLOCK);
-        }
-    }
-}
+function mainLoop(enteredName : string) {
+    saveName = enteredName;
+    if (!loadGame()) {
+        back.fill(0);
+        game.showLongText("Use the arrow keys to look around, space to go forward, enter to go backwards.", DialogLayout.Bottom)
+        game.showLongText("Press enter and space at the same time to edit a block.", DialogLayout.Bottom)
+        game.showLongText("If you do it quick, it happens instantly, otherwise you can use the block menu. ", DialogLayout.Bottom)
 
-// Main loop
-game.onUpdate(() => {
-    let r = game.runtime();
-    deltatime = (r - last) / 1000;
-    last = r;
-    if (gameMode == 1) return fancyUi();
-    back.fill(0);
-    let tcx = Math.round(player_x / CHUNK_SIZE);
-    let tcz = Math.round(player_z / CHUNK_SIZE);
-    
-    if (player_cx != tcx || player_cz != tcz || forceRebuildChunk){
-        forceRebuildChunk = false;
-        player_cx = tcx;
-        player_cz = tcz;
-        currentchunks = [];
-        // if (renderDistance == 1)
-            // genChunkStack(Math.idiv(player_x, CHUNK_SIZE), Math.idiv(player_z, CHUNK_SIZE));
-        for (let cx = tcx - renderDistanceHalf; cx < tcx + renderDistanceHalf; cx++){
-            for (let cz = tcz - renderDistanceHalf; cz < tcz + renderDistanceHalf; cz++){
-                // if (cx > 100) continue;
-                // if (cz > 100) continue;
-                const cannon_chunk = canonizeChunk(cx, cz);
-
-                const rowx = extendAndGet(chunks, cannon_chunk[0]);
-                let chunk = extendAndGet(rowx, cannon_chunk[1]);
-
-                if (chunk.length == 0)
-                    chunks[cannon_chunk[0]][cannon_chunk[1]] = chunk = genChunkStack(cx, cz);
-                    
-                if (chunk.length)
-                    currentchunks.push([cx, cz]);
-                // let chunk = genChunkStack(cx, cz)
-                if (chunk && chunk.length)
-                    chunks[cannon_chunk[0]][cannon_chunk[1]] = chunk;
-                    
-                
+        for (let x = 1; x++ < 25;) {
+            for (let z = 1; z++ < 25;) {
+                SetBlock(x, 2, z, GREEN_BLOCK);
+                SetBlock(x, 1, z, PURPLE_BLOCK);
+                SetBlock(x, 0, z, PURPLE_BLOCK);
             }
         }
-
-        saveGame();
-        
-        
     }
-    updateLighting();
-    const c_true_x = player_x / CHUNK_SIZE;
-    const c_true_z = player_z / CHUNK_SIZE;
-    
 
-    currentchunks
-        // Render far away chunks first, then the ones closer to the player.
-        // Sorting a few dozen chunks is faster than tens of thousands of triangles. 
-        .sort((xy, xy2) => {
-            const dx = Math.max(
-                Math.pow(c_true_x - xy[0], 2),
-                Math.pow(c_true_x - (xy[0] + .999), 2)
-            );
-            const dz = Math.max(
-                Math.pow(c_true_z - xy[1], 2),
-                Math.pow(c_true_z - (xy[1] + .999), 2)
-            );
-            const dx2 = Math.max(
-                Math.pow(c_true_x - xy2[0], 2),
-                Math.pow(c_true_x - (xy2[0] + .999), 2)
-            );
-            const dz2 = Math.max(
-                Math.pow(c_true_z - xy2[1], 2),
-                Math.pow(c_true_z - (xy2[1] + .999), 2)
-            );
-            return (dx2 + dz2) - (dx + dz);
-        })
-        .forEach((xy) => {
-            const cannon_chunk = canonizeChunk(xy[0], xy[1])
-            const chunk = chunks[cannon_chunk[0]][cannon_chunk[1]];
-            drawTriStack(chunk[0], chunk[1]);
-        });
+    // Main loop
+    game.onUpdate(() => {
+        let r = game.runtime();
+        deltatime = (r - last) / 1000;
+        last = r;
+        if (gameScreen == 1) return fancyUi();
+        back.fill(gamemode);
+        info.setScore(score);
+        let tcx = Math.round(player_x / CHUNK_SIZE);
+        let tcz = Math.round(player_z / CHUNK_SIZE);
 
-    
-    lookingAt = raycast();
-    if (null != lookingAt && lookingAt[3] >= 0 && lookingAt[4] >= 0 && lookingAt[5] >= 0) {
-        const scalar = 1 + Math.sin(r / 100) / 9;
-        const outLinePoints = mutPoints(cubePoints, scalar, lookingAt[0], lookingAt[1], lookingAt[2]);
-        const dirx = -.5 * Math.sign(lookingAt[0] - lookingAt[3]);
-        const diry = .5 * -Math.sign(lookingAt[1] - lookingAt[4]);
-        const dirz = .5 * -Math.sign(lookingAt[2] - lookingAt[5]);
-        
-        temp = 0;
-        let previewPoints: number[][] = mutPoints(cubePoints.filter((xy)=>{
-            if (dirx)
-                return dirx == xy[0];
-            if (diry)
-                return diry == xy[1];
-            if (dirz)
-                return dirz == xy[2];
-            return true;
-        }), scalar, lookingAt[0], lookingAt[1], lookingAt[2]).map((xy) => projectPoint(xy[0], xy[1], xy[2]));
-        
-        drawLineStack(outLinePoints, cubeLines);
-        if (-1 == previewPoints.indexOf(null))
-            back.fillPolygon4(
-                previewPoints[0][0],
-                previewPoints[0][1],
-                previewPoints[1][0],
-                previewPoints[1][1],
-                previewPoints[2][0],
-                previewPoints[2][1],
-                previewPoints[3][0],
-                previewPoints[3][1],
-                1
-            );
+        if (player_cx != tcx || player_cz != tcz || forceRebuildChunk) {
+            forceRebuildChunk = false;
+            player_cx = tcx;
+            player_cz = tcz;
+            currentchunks = [];
+            // if (renderDistance == 1)
+            // genChunkStack(Math.idiv(player_x, CHUNK_SIZE), Math.idiv(player_z, CHUNK_SIZE));
+            for (let cx = tcx - renderDistanceHalf; cx < tcx + renderDistanceHalf; cx++) {
+                for (let cz = tcz - renderDistanceHalf; cz < tcz + renderDistanceHalf; cz++) {
+                    // if (cx > 100) continue;
+                    // if (cz > 100) continue;
+                    const cannon_chunk = canonizeChunk(cx, cz);
+
+                    const rowx = extendAndGet(chunks, cannon_chunk[0]);
+                    let chunk = extendAndGet(rowx, cannon_chunk[1]);
+
+                    if (chunk.length == 0)
+                        chunks[cannon_chunk[0]][cannon_chunk[1]] = chunk = genChunkStack(cx, cz);
+
+                    if (chunk.length)
+                        currentchunks.push([cx, cz]);
+                    // let chunk = genChunkStack(cx, cz)
+                    if (chunk && chunk.length)
+                        chunks[cannon_chunk[0]][cannon_chunk[1]] = chunk;
 
 
-    }
-    
+                }
+            }
 
-    if (controller.left.isPressed()) player_ry -= deltatime;
-    if (controller.right.isPressed()) player_ry += deltatime;
+            saveGame();
 
-    if (controller.up.isPressed()) player_rx -= deltatime;
-    if (controller.down.isPressed()) player_rx += deltatime;
 
-    let forward = 0;
-    if (controller.A.isPressed()) forward += deltatime * 4;
-    if (controller.B.isPressed()) forward -= deltatime * 4;
-    if (controller.A.isPressed() && controller.B.isPressed() && lookingAt) gameMode = 1;
+        }
+        updateLighting();
+        const c_true_x = player_x / CHUNK_SIZE;
+        const c_true_z = player_z / CHUNK_SIZE;
 
-    player_x += -forward * Math.sin(-player_ry) * Math.cos(player_rx);
-    player_y -= forward * Math.sin(player_rx);
-    player_z += forward * Math.cos(-player_ry) * Math.cos(player_rx);
-});
 
+        currentchunks
+            // Render far away chunks first, then the ones closer to the player.
+            // Sorting a few dozen chunks is faster than tens of thousands of triangles. 
+            .sort((xy, xy2) => {
+                const dx = Math.max(
+                    Math.pow(c_true_x - xy[0], 2),
+                    Math.pow(c_true_x - (xy[0] + .999), 2)
+                );
+                const dz = Math.max(
+                    Math.pow(c_true_z - xy[1], 2),
+                    Math.pow(c_true_z - (xy[1] + .999), 2)
+                );
+                const dx2 = Math.max(
+                    Math.pow(c_true_x - xy2[0], 2),
+                    Math.pow(c_true_x - (xy2[0] + .999), 2)
+                );
+                const dz2 = Math.max(
+                    Math.pow(c_true_z - xy2[1], 2),
+                    Math.pow(c_true_z - (xy2[1] + .999), 2)
+                );
+                return (dx2 + dz2) - (dx + dz);
+            })
+            .forEach((xy) => {
+                const cannon_chunk = canonizeChunk(xy[0], xy[1])
+                const chunk = chunks[cannon_chunk[0]][cannon_chunk[1]];
+                drawTriStack(chunk[0], chunk[1]);
+            });
+
+
+        lookingAt = raycast();
+        if (null != lookingAt && lookingAt[3] >= 0 && lookingAt[4] >= 0 && lookingAt[5] >= 0) {
+            const scalar = 1 + Math.sin(r / 100) / 9;
+            const outLinePoints = mutPoints(cubePoints, scalar, lookingAt[0], lookingAt[1], lookingAt[2]);
+            const dirx = -.5 * Math.sign(lookingAt[0] - lookingAt[3]);
+            const diry = .5 * -Math.sign(lookingAt[1] - lookingAt[4]);
+            const dirz = .5 * -Math.sign(lookingAt[2] - lookingAt[5]);
+
+            temp = 0;
+            let previewPoints: number[][] = mutPoints(cubePoints.filter((xy) => {
+                if (dirx)
+                    return dirx == xy[0];
+                if (diry)
+                    return diry == xy[1];
+                if (dirz)
+                    return dirz == xy[2];
+                return true;
+            }), scalar, lookingAt[0], lookingAt[1], lookingAt[2]).map((xy) => projectPoint(xy[0], xy[1], xy[2]));
+
+            drawLineStack(outLinePoints, cubeLines);
+            if (-1 == previewPoints.indexOf(null))
+                back.fillPolygon4(
+                    previewPoints[0][0],
+                    previewPoints[0][1],
+                    previewPoints[1][0],
+                    previewPoints[1][1],
+                    previewPoints[2][0],
+                    previewPoints[2][1],
+                    previewPoints[3][0],
+                    previewPoints[3][1],
+                    1
+                );
+
+
+        }
+
+
+        if (controller.left.isPressed()) player_ry -= deltatime;
+        if (controller.right.isPressed()) player_ry += deltatime;
+
+        if (controller.up.isPressed()) player_rx -= deltatime;
+        if (controller.down.isPressed()) player_rx += deltatime;
+
+        let forward = 0;
+        if (controller.A.isPressed()) forward += deltatime * 4;
+        if (controller.B.isPressed()) forward -= deltatime * 4;
+        if (controller.A.isPressed() && controller.B.isPressed() && lookingAt) gameScreen = 1;
+
+        if (controller.left.isPressed() && controller.right.isPressed())
+            gamemode = (gamemode+1) % 16;
+
+        player_x += -forward * Math.sin(-player_ry) * Math.cos(player_rx);
+        player_y -= forward * Math.sin(player_rx);
+        player_z += forward * Math.cos(-player_ry) * Math.cos(player_rx);
+    });
+}
+worldSelectionUi(mainLoop);
