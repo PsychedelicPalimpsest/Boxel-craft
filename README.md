@@ -13,7 +13,7 @@
 |   | ,'            `---'  `--`  \   \  /  ---`-'           \   \  /       |  ,     .-./  |,'     ---`-'   
 `----'                            `----'                     `----'         `--`---'   `--'                
 ```                                                                                          
-> Open this page at [https://heronerin.github.io/Boxel-craft/](https://heronerin.github.io/Boxel-craft/)
+> Open this page at [https://PsychedelicPalimpsest.github.io/Boxel-craft/](https://PsychedelicPalimpsest.github.io/Boxel-craft/)
 
 
 ## Boxel Craft
@@ -29,7 +29,7 @@ As Microsoft enjoys reinventing the wheel, you are limited to the Makecode Arcad
 ## Copyright
 
 ```plaintext
-    Copyright (C) 2024 - HeronErin
+    Copyright (C) 2024 - PsychedelicPalimpsest
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
